@@ -5,15 +5,18 @@ export class Bisector {
   public minRev: number;
   public maxRev: number;
   private pivot: number;
+  private skippedVersions: Set<number>; // Track skipped versions
 
   constructor(revList: Array<RunnableVersion>) {
     this.getCurrentVersion = this.getCurrentVersion.bind(this);
     this.continue = this.continue.bind(this);
+    this.skipVersion = this.skipVersion.bind(this);
     this.calculatePivot = this.calculatePivot.bind(this);
 
     this.revList = revList;
     this.minRev = 0;
     this.maxRev = revList.length - 1;
+    this.skippedVersions = new Set(); // Initialize skipped versions tracker
     this.calculatePivot();
   }
 
@@ -23,27 +26,22 @@ export class Bisector {
 
   public continue(isGoodVersion: boolean) {
     let isBisectOver = false;
+    
     if (this.maxRev - this.minRev <= 1) {
       isBisectOver = true;
     }
 
     if (isGoodVersion) {
-      const upPivot = Math.floor((this.maxRev - this.pivot) / 2) + this.pivot;
       this.minRev = this.pivot;
-      if (upPivot !== this.maxRev && upPivot !== this.pivot) {
-        this.pivot = upPivot;
-      } else {
-        isBisectOver = true;
-      }
     } else {
-      const downPivot =
-        Math.floor((this.pivot - this.minRev) / 2) + this.minRev;
       this.maxRev = this.pivot;
-      if (downPivot !== this.minRev && downPivot !== this.pivot) {
-        this.pivot = downPivot;
-      } else {
-        isBisectOver = true;
-      }
+    }
+
+    this.calculatePivot();
+
+    // Skip versions that are marked as skipped
+    while (this.skippedVersions.has(this.pivot) && this.minRev < this.maxRev) {
+      this.calculatePivot();
     }
 
     if (isBisectOver) {
@@ -53,7 +51,19 @@ export class Bisector {
     }
   }
 
+  public skipVersion() {
+    this.skippedVersions.add(this.pivot); // Mark current version as skipped
+    this.calculatePivot();
+
+    // Skip all skipped versions
+    while (this.skippedVersions.has(this.pivot) && this.minRev < this.maxRev) {
+      this.calculatePivot();
+    }
+
+    return this.getCurrentVersion();
+  }
+
   private calculatePivot() {
-    this.pivot = Math.floor((this.maxRev - this.minRev) / 2);
+    this.pivot = Math.floor((this.maxRev - this.minRev) / 2) + this.minRev;
   }
 }
